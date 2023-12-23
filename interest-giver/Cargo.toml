@@ -1,0 +1,13 @@
+[package]
+name = "interest-giver"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+solana-account-decoder = "1.17.13"
+solana-client = "1.17.13"
+solana-sdk = "1.17.13"
+spl-token = "4.0.0"
+gfx-token-vaults = { path = "../programs/gfx-token-vaults"}

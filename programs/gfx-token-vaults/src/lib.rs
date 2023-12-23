@@ -1,12 +1,19 @@
+pub mod interestvault;
+pub mod initialise;
+pub mod transaction;
+
 use anchor_lang::prelude::*;
-use anchor_lang::system_program;
-use anchor_spl::token::{Mint, Token, TokenAccount};
 use anchor_spl::token;
+
+use initialise::*;
+use transaction::*;
+
 
 declare_id!("145CK1g8wC9bYZ5fj6qw5KTrxYAAvCTaosrCdhw15S9u");
 
 #[program]
 pub mod gfx_token_vaults {
+    use crate::transaction::Transaction;
     use super::*;
 
     #[error_code]
@@ -97,55 +104,5 @@ pub mod gfx_token_vaults {
     }
 }
 
-#[account]
-#[derive(InitSpace)]
-pub struct InterestVault {
-    balance: u64,
-    mint_address: Pubkey,
-    ata_address: Pubkey,
-    owner: Pubkey, // owner of the vault - to prevent withdrawals from other users
-}
 
-#[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(
-      init,
-      seeds = [b"vault", mint.key().as_ref(), owner.key().as_ref()],
-      bump,
-      payer = owner,
-      space = 8 + InterestVault::INIT_SPACE
-    )]
-    pub vault: Account<'info, InterestVault>,
-
-    #[account(
-    init,
-    payer = owner,
-    token::mint = mint,
-    token::authority = owner,
-    seeds = [mint.key().as_ref(), vault.key().as_ref()],
-    bump,
-    )]
-    pub new_ata: Account<'info, TokenAccount>,
-    pub mint: Account<'info, Mint>,
-
-    #[account(mut)]
-    pub owner: Signer<'info>,
-    pub rent: Sysvar<'info, Rent>,
-    pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>
-}
-
-
-#[derive(Accounts)]
-pub struct Transaction<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    #[account(mut)]
-    pub vault: Account<'info, InterestVault>,
-    #[account(mut)]
-    pub to_ata: Account<'info,TokenAccount>,
-    #[account(mut)]
-    pub from_ata: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
-}
 
