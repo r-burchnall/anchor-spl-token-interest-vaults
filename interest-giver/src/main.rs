@@ -1,17 +1,20 @@
 use solana_client::{
     rpc_client::RpcClient,
-    rpc_filter::{RpcFilterType, Memcmp, MemcmpEncodedBytes, MemcmpEncoding},
-    rpc_config::{RpcProgramAccountsConfig, RpcAccountInfoConfig},
 };
-use solana_sdk::{commitment_config::CommitmentConfig, program_pack::Pack, pubkey};
-use spl_token::{state::{Mint, Account}};
-use solana_account_decoder::{UiAccountEncoding};
+use solana_client::nonce_utils::get_account;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey};
+use solana_sdk::instruction::{Instruction,AccountMeta};
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
+use solana_sdk::transaction::Transaction;
+use solana_sdk::{
+    system_program,
+};
+const PROGRAM_ID: Pubkey = pubkey!("145CK1g8wC9bYZ5fj6qw5KTrxYAAvCTaosrCdhw15S9u");
+const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 fn main() -> Result<(), ()> {
-    const MY_WALLET_ADDRESS:Pubkey = pubkey!("FriELggez2Dy3phZeHHAdpcoEXkKQVkv6tx3zDtCVP8T");
-    const PROGRAM_ID: Pubkey = pubkey!("145CK1g8wC9bYZ5fj6qw5KTrxYAAvCTaosrCdhw15S9u");
-
+    let interest_payer_keypair = Keypair::new();
 
     let rpc_url = "http://localhost:8899".to_string();
     let connection = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
@@ -26,28 +29,27 @@ fn main() -> Result<(), ()> {
         rpc_url.to_string(),
         CommitmentConfig::confirmed(),
     );
-    let accounts = accounts.unwrap();
 
+    let accounts = accounts.unwrap();
     for account in accounts {
-        let pubkey = account.0;
+        let vault_pubkey = account.0;
         let account = account.1;
-        let account_data = non_blocking_client.get_account_with_commitment(&pubkey, CommitmentConfig::confirmed()).await.expect("blow");
-        if Err(account_data) {
-            println!("Error: {:?}", account_data);
-            return Err(());
-        }
-        let account_data = account_data.unwrap();
-        let account_data = account_data.value;
-        let account_data = account_data.data;
-        let account_data = account_data.as_ref();
-        let account_data = Account::unpack(account_data);
-        if Err(account_data) {
-            println!("Error: {:?}", account_data);
-            return Err(());
-        }
-        let account_data = account_data.unwrap();
-        let account_data = account_data.amount;
-        println!("Account: {:?} has {:?} tokens", account.pubkey(), account_data);
+
+        // await getAssociatedTokenAddress(mint.address, userWallet.publicKey),
+        let ata = non_blocking_client.get_account();
+        let instruction = Instruction::new_with_borsh(
+            PROGRAM_ID,
+            Default::default(),
+            vec![
+                AccountMeta::new(interest_payer_keypair.pubkey(), true), // signer
+                AccountMeta::new(vault_pubkey, false), // vault
+                AccountMeta::new(account.data, false), //toata
+                AccountMeta::new(account.data, false), //fromata
+                AccountMeta::new(TOKEN_PROGRAM_ID, false) //token_program
+            ],
+        );
+
+
     }
 
     Ok(())
@@ -59,12 +61,14 @@ fn send_initialize_tx(
     payer: &Keypair
 ) -> Result<()> {
 
-    let bank_instruction = gfx::Initialize;
+    let ix = gfx_token_vaults::transaction::Transaction;
 
     let instruction = Instruction::new_with_borsh(
         program_id,
-        &bank_instruction,
-        vec![],
+        &ix,
+        vec![
+
+        ],
     );
 
     let blockhash = client.get_latest_blockhash()?;
