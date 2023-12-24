@@ -46,8 +46,6 @@ async fn main() {
     );
     let non_blocking_client = Arc::new(non_blocking_client);
 
-    let recent_blockhash = connection.get_latest_blockhash().unwrap();
-
     let requests = accounts
         .iter()
         .map(|acc| {
@@ -78,6 +76,8 @@ async fn main() {
                     AccountMeta::new(TOKEN_PROGRAM_ID, false) //token_program
                 ],
             );
+
+            let recent_blockhash = connection.get_latest_blockhash().unwrap();
 
             let tx: Transaction = Transaction::new_signed_with_payer(
                 &[ix],
