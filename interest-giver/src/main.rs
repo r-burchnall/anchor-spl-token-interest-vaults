@@ -6,30 +6,44 @@ use solana_client::{
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey};
 use solana_sdk::instruction::{Instruction,AccountMeta};
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::{Keypair, Signer};
+use solana_sdk::signature::{read_keypair_file, Signer};
 use solana_sdk::transaction::Transaction;
 
 use gfx_token_vaults::interestvault::InterestVault;
-use futures::future::{join_all, ok};
-use solana_sdk::account::ReadableAccount;
 
-const PROGRAM_ID: Pubkey = pubkey!("145CK1g8wC9bYZ5fj6qw5KTrxYAAvCTaosrCdhw15S9u");
 const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 #[tokio::main]
 async fn main() {
-    let interest_payer_keypair = Keypair::new();
+    let args: Vec<String> = std::env::args().collect();
+    println!("Args: {:?}", args);
+    if args.len() != 3 {
+        println!("Usage: interest-giver <interest payer keypair path> <program id>");
+        return;
+    }
 
+    let interest_payer_keypair_path = args[1].clone();
+    let interest_payer_keypair = read_keypair_file(interest_payer_keypair_path.as_str()).unwrap_or_else(|err| {
+        println!("Failure to read keypair file: {:?}", err);
+        std::process::exit(1);
+    });
+
+    let program_id = args[2].parse::<Pubkey>().unwrap_or_else(|_| {
+        println!("Program id is not a valid pubkey");
+        std::process::exit(1);
+    });
+
+    // TODO: allow us to target a specific RPC node
     let rpc_url = "http://localhost:8899".to_string();
     let connection = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
 
-    let accounts = connection.get_program_accounts(&PROGRAM_ID).unwrap();
+    let accounts = connection.get_program_accounts(&program_id).unwrap();
 
+    // create our non-blocking client
     let non_blocking_client = solana_client::nonblocking::rpc_client::RpcClient::new_with_commitment(
         rpc_url.to_string(),
         CommitmentConfig::confirmed(),
     );
-
     let non_blocking_client = Arc::new(non_blocking_client);
 
     let recent_blockhash = connection.get_latest_blockhash().unwrap();
@@ -48,7 +62,7 @@ async fn main() {
             let from_ata = interest_payer_keypair.pubkey();
 
             let ix = Instruction::new_with_bytes(
-                PROGRAM_ID,
+                program_id,
                 &[0],
                 vec![
                     AccountMeta::new(interest_payer_keypair.pubkey(), true), // signer
