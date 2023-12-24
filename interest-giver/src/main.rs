@@ -8,6 +8,7 @@ use solana_sdk::instruction::{Instruction,AccountMeta};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{read_keypair_file, Signer};
 use solana_sdk::transaction::Transaction;
+use spl_associated_token_account::get_associated_token_address;
 
 use gfx_token_vaults::interestvault::InterestVault;
 
@@ -16,7 +17,6 @@ const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
-    println!("Args: {:?}", args);
     if args.len() != 3 {
         println!("Usage: interest-giver <interest payer keypair path> <program id>");
         return;
@@ -58,12 +58,18 @@ async fn main() {
             let mut buf: &[u8] = account.data.as_slice();
             let account = InterestVault::try_deserialize(&mut buf).unwrap();
 
+            let mint_address = account.mint_address;
             let to_ata = account.ata_address;
-            let from_ata = interest_payer_keypair.pubkey();
+            let from_ata = get_associated_token_address(&interest_payer_keypair.pubkey(), &mint_address);
+
+            // While this works, it's not the best way to do this
+            // Looks like this hex string is the discriminator for the instruction // TODO: confirm this
+            let data_as_hex_str = "b9ed3261ecb304bc";
+            let data = hex::decode(data_as_hex_str).unwrap();
 
             let ix = Instruction::new_with_bytes(
                 program_id,
-                &[0],
+                data.as_slice(),
                 vec![
                     AccountMeta::new(interest_payer_keypair.pubkey(), true), // signer
                     AccountMeta::new(vault_pubkey, false), // vault
@@ -84,7 +90,7 @@ async fn main() {
             tokio::task::spawn(async move {
                 println!("Applying interest to account: {}", vault_pubkey);
                 match client.send_and_confirm_transaction(&tx).await {
-                    Ok(_) => println!("Success"),
+                    Ok(x) => println!("Success: {:?}", x),
                     Err(e) => println!("Error for {}: {:?}", vault_pubkey, e),
                 }
             })

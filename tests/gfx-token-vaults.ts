@@ -11,18 +11,17 @@ import {
 } from "@solana/web3.js";
 import {expect} from "chai";
 import {
-    createAssociatedTokenAccount,
     createMint,
     getAssociatedTokenAddress,
     getMint, getOrCreateAssociatedTokenAccount,
     Mint, mintTo,
     TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
-import {ASSOCIATED_PROGRAM_ID} from "@coral-xyz/anchor/dist/cjs/utils/token";
 
 function createWallet(): { keypair: Keypair, wallet: Wallet } {
     const keypair = Keypair.generate();
     const wallet = new Wallet(keypair);
+
     return {keypair, wallet}
 }
 
@@ -33,6 +32,7 @@ async function airdropSol(connection: Connection, wallet: PublicKey, amount = 1)
         await connection.confirmTransaction(tx);
     }
 }
+
 async function topUpMint(connection:Connection,mint:Mint,mintSigner:Keypair,wallet:Wallet,amount=10){
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
         connection,
@@ -47,7 +47,15 @@ describe("gfx-token-vaults", () => {
     // Configure the client to use the local cluster.
     anchor.setProvider(anchor.AnchorProvider.env());
     const {connection} = anchor.getProvider()
+
+    // Generate a new keypair and wallet for each test run
     const {keypair: userKeyPair, wallet: userWallet} = createWallet()
+
+    // If you want to reuse your keypair, you can use the following line instead
+    // const keydata: number[] = require("path/to/id.json")
+    // const userKeyPair = Keypair.fromSeed(Uint8Array.from(keydata.slice(0, 32)))
+    // const userWallet = new Wallet(userKeyPair)
+
     const program = anchor.workspace.GfxTokenVaults as Program<GfxTokenVaults>;
 
     let mint: Mint;
@@ -182,6 +190,8 @@ describe("gfx-token-vaults", () => {
             })
             .signers([userKeyPair])
             .instruction()
+
+        console.log(ix.data.toString("hex"))
 
         tx = new Transaction();
         tx.add(ix)
